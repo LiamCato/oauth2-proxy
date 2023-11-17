@@ -111,6 +111,14 @@ type OAuthProxy struct {
 	appDirector       redirect.AppDirector
 }
 
+func SetAccessControlHeaders(rw http.ResponseWriter, req *http.Request) {
+	origin := req.Header.Get("Origin")
+	if origin != "" {
+	    rw.Header().Set("Access-Control-Allow-Origin", origin)
+	    rw.Header().Set("Access-Control-Allow-Credentials", "true")
+	}
+}
+
 // NewOAuthProxy creates a new instance of OAuthProxy from the options provided
 func NewOAuthProxy(opts *options.Options, validator func(string) bool) (*OAuthProxy, error) {
 	sessionStore, err := sessions.NewSessionStore(&opts.Session, &opts.Cookie)
@@ -535,6 +543,8 @@ func (p *OAuthProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 // ErrorPage writes an error response
 func (p *OAuthProxy) ErrorPage(rw http.ResponseWriter, req *http.Request, code int, appError string, messages ...interface{}) {
+	SetAccessControlHeaders(rw, req)
+	rw.WriteHeader(code)
 	redirectURL, err := p.appDirector.GetRedirect(req)
 	if err != nil {
 		logger.Errorf("Error obtaining redirect: %v", err)
@@ -621,6 +631,7 @@ func (p *OAuthProxy) SignInPage(rw http.ResponseWriter, req *http.Request, code 
 		p.ErrorPage(rw, req, http.StatusInternalServerError, err.Error())
 		return
 	}
+	SetAccessControlHeaders(rw, req)
 	rw.WriteHeader(code)
 
 	redirectURL, err := p.appDirector.GetRedirect(req)
@@ -965,6 +976,7 @@ func (p *OAuthProxy) Proxy(rw http.ResponseWriter, req *http.Request) {
 		if p.forceJSONErrors || isAjax(req) || p.isAPIPath(req) {
 			logger.Printf("No valid authentication in request. Access Denied.")
 			// no point redirecting an AJAX request
+			SetAccessControlHeaders(rw, req)
 			p.errorJSON(rw, http.StatusUnauthorized)
 			return
 		}
@@ -981,6 +993,7 @@ func (p *OAuthProxy) Proxy(rw http.ResponseWriter, req *http.Request) {
 
 	case ErrAccessDenied:
 		if p.forceJSONErrors {
+			SetAccessControlHeaders(rw, req)
 			p.errorJSON(rw, http.StatusForbidden)
 		} else {
 			p.ErrorPage(rw, req, http.StatusForbidden, "The session failed authorization checks")

@@ -794,6 +794,45 @@ func TestSignInPageSkipProviderDirect(t *testing.T) {
 	}
 }
 
+func TestSignInPageRespectsCorsHeaders(t *testing.T) {
+	sipTest, err := NewSignInPageTest(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	endpoint := "/some/random/endpoint"
+
+	rw := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", endpoint, strings.NewReader(""))
+	req.Header.Set("Origin", "https://example.com")
+	sipTest.proxy.ServeHTTP(rw, req)
+	code := rw.Code
+	headers := rw.Header()
+	assert.Equal(t, 403, code)
+	assert.Equal(t, "https://example.com", headers.Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "true", headers.Get("Access-Control-Allow-Credentials"))
+}
+
+func TestAjaxErrorPageRespectsCorsHeaders(t *testing.T) {
+	sipTest, err := NewSignInPageTest(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	endpoint := "/some/random/endpoint"
+
+	rw := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", endpoint, strings.NewReader(""))
+	req.Header.Set("Origin", "https://example.com")
+	req.Header.Set("Accept", "application/json")
+	sipTest.proxy.ServeHTTP(rw, req)
+	code := rw.Code
+	headers := rw.Header()
+	assert.Equal(t, 401, code)
+	assert.Equal(t, "https://example.com", headers.Get("Access-Control-Allow-Origin"))
+	assert.Equal(t, "true", headers.Get("Access-Control-Allow-Credentials"))
+}
+
 type ProcessCookieTest struct {
 	opts         *options.Options
 	proxy        *OAuthProxy
