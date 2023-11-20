@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	sessionsapi "github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/sessions"
@@ -19,6 +20,14 @@ type VerifyFunc func(ctx context.Context, token string) (*oidc.IDToken, error)
 // for converting a JWT into a session.
 func CreateTokenToSessionFunc(verify VerifyFunc) TokenToSessionFunc {
 	return func(ctx context.Context, token string) (*sessionsapi.SessionState, error) {
+		var claimsWithIntGroups struct {
+			Subject           string   `json:"sub"`
+			Email             string   `json:"email"`
+			Verified          *bool    `json:"email_verified"`
+			PreferredUsername string   `json:"preferred_username"`
+			Groups            []int `json:"groups"`
+		}
+
 		var claims struct {
 			Subject           string   `json:"sub"`
 			Email             string   `json:"email"`
@@ -31,11 +40,17 @@ func CreateTokenToSessionFunc(verify VerifyFunc) TokenToSessionFunc {
 		if err != nil {
 			return nil, err
 		}
-
-		if err := idToken.Claims(&claims); err != nil {
+		if err := idToken.Claims(&claimsWithIntGroups); err != nil {
 			return nil, fmt.Errorf("failed to parse bearer token claims: %v", err)
 		}
-
+		claims.Subject = claimsWithIntGroups.Subject
+		claims.Email = claimsWithIntGroups.Email
+		claims.Verified = claimsWithIntGroups.Verified
+		claims.PreferredUsername = claimsWithIntGroups.PreferredUsername
+		claims.Groups = make([]string, len(claimsWithIntGroups.Groups))
+		for i, v := range claimsWithIntGroups.Groups {
+		    claims.Groups[i] = strconv.Itoa(v)
+		}
 		if claims.Email == "" {
 			claims.Email = claims.Subject
 		}
