@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/logger"
 )
 
 // idTokenVerifier allows an ID Token to be verified against the issue and provided keys.
@@ -64,7 +65,9 @@ func (v *idTokenVerifier) verifyAudience(token *oidc.IDToken, claims map[string]
 	for _, audienceClaim := range v.verificationOptions.AudienceClaims {
 		if audienceClaimValue, audienceClaimExists := claims[audienceClaim]; audienceClaimExists {
 
-			// audience claim value can be either interface{} or []interface{},
+            logger.Printf("token = %v", token)
+            logger.Printf("audience claims = %v", audienceClaimValue)
+			// audience claim value can be either iterface{} or []interface{},
 			// as per spec `aud` can be either a string or a list of strings
 			switch audienceClaimValueType := audienceClaimValue.(type) {
 			case []interface{}:
